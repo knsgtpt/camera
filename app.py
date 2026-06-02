@@ -223,77 +223,20 @@ def clear_logs():
 
 @app.route('/api/test', methods=['POST'])
 def test_conn():
-    import socket as _sock
-    d   = request.get_json(silent=True) or {}
-    ip  = (d.get('ip') or '').strip()
-    if not ip:
-        return jsonify({'ok': False, 'msg': 'Chưa nhập địa chỉ IP', 'step': 0})
-
-    port = int(d.get('port') or 554)
-
-    # ── Bước 1: kiểm tra TCP port (nhanh, 3 giây) ─────────────────────────
-    try:
-        s = _sock.create_connection((ip, port), timeout=3)
-        s.close()
-    except _sock.timeout:
-        return jsonify({'ok': False, 'step': 1,
-                        'msg': f'[Bước 1] Timeout khi kết nối {ip}:{port} — camera không phản hồi hoặc sai IP/port'})
-    except ConnectionRefusedError:
-        return jsonify({'ok': False, 'step': 1,
-                        'msg': f'[Bước 1] Port {port} bị từ chối — thử port 554 hoặc 8554'})
-    except OSError as e:
-        return jsonify({'ok': False, 'step': 1,
-                        'msg': f'[Bước 1] Không đến được {ip}:{port} — {e}'})
-
-    # ── Bước 2: kết nối RTSP qua OpenCV ───────────────────────────────────
-    u   = urlquote(d.get('username', 'admin'), safe='')
-    p   = urlquote(d.get('password', ''),      safe='')
-    ch  = int(d.get('channel') or 1)
-    url = f"rtsp://{u}:{p}@{ip}:{port}/cam/realmonitor?channel={ch}&subtype=0"
-
+    d = request.get_json(silent=True) or {}
+    if not d.get('ip'): return jsonify({'ok':False,'msg':'Thiếu IP'}), 400
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp|fflags;nobuffer'
+    u   = urlquote(d.get('username','admin'), safe='')
+    p   = urlquote(d.get('password',''),      safe='')
+    url = f"rtsp://{u}:{p}@{d['ip']}:{int(d.get('port') or 554)}/cam/realmonitor?channel={int(d.get('channel') or 1)}&subtype=0"
     cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 6000)
-    cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 6000)
-
+    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 7000)
+    cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 7000)
     if not cap.isOpened():
-        cap.release()
-        return jsonify({'ok': False, 'step': 2,
-                        'msg': f'[Bước 2] TCP OK nhưng RTSP từ chối — sai username/password hoặc camera chưa bật RTSP'})
-
-    # ── Bước 3: đọc frame thực ────────────────────────────────────────────
-    ret, frame = cap.read()
-    cap.release()
-    if not ret or frame is None:
-        return jsonify({'ok': False, 'step': 3,
-                        'msg': '[Bước 3] RTSP mở được nhưng không đọc được hình — sai channel hoặc subtype'})
-
-    h, w = frame.shape[:2]
-    return jsonify({'ok': True, 'step': 3,
-                    'msg': f'✓ Kết nối thành công! Hình {w}×{h}px từ {ip}'})
-
-@app.route('/diag')
-def diag():
-    import socket as _sock
-    rows = []
-    for cid, cfg in cameras.items():
-        m   = monitors.get(cid)
-        ip  = cfg.get('ip','?')
-        port= cfg.get('port', 554)
-        # TCP check
-        try:
-            s = _sock.create_connection((ip, port), timeout=2); s.close()
-            tcp = '✓ OK'
-        except Exception as e:
-            tcp = f'✗ {e}'
-        rows.append({'id':cid,'name':cfg.get('name'),'ip':ip,'port':port,
-                     'status':cfg.get('status'),'tcp':tcp,
-                     'frames': len(m.buf) if m else 0})
-    return jsonify({'cameras': rows,
-                    'python': __import__('sys').version,
-                    'cv2': cv2.__version__,
-                    'total_logs': len(logs)})
-
+        cap.release(); return jsonify({'ok':False,'msg':'Không kết nối được — kiểm tra IP/port'})
+    ret, _ = cap.read(); cap.release()
+    if not ret: return jsonify({'ok':False,'msg':'Kết nối OK nhưng không đọc được hình — sai mật khẩu?'})
+    return jsonify({'ok':True,'msg':'Kết nối thành công ✓'})
 
 @app.route('/api/demo', methods=['POST'])
 def demo():
