@@ -223,7 +223,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font:13px/1.4 'Sego
   <div class="livebadge"><div class="dot"></div>REALTIME</div>
   <button class="btn btn-cyan" id="btnOpenModal">＋ THÊM CAMERA</button>
   <button class="btn" id="btnDemo">DEMO</button>
-  <button class="btn" onclick="window.open('/diag','_blank')" style="color:var(--yellow);border-color:rgba(255,201,60,.3)">CHẨN ĐOÁN</button>
   <div id="clock"></div>
 </div>
 
@@ -300,7 +299,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font:13px/1.4 'Sego
       <input class="inp" id="fUser" placeholder="Username" value="admin">
       <input class="inp" id="fPass" type="password" placeholder="Password">
     </div>
-    <div class="rtspbox">rtsp://<span id="rtspPreview">test:Abc@123@10.17.16.81:554/cam/realmonitor?channel=1&amp;subtype=1</span></div>
+    <div class="rtspbox">rtsp://<span id="rtspPreview">admin:***@10.17.16.81:554/cam/realmonitor?channel=1&amp;subtype=0</span></div>
     <div id="testbanner"></div>
     <div class="mfoot">
       <button class="btn"            id="btnCancel">HỦY</button>
@@ -517,23 +516,8 @@ function doTest() {
   var btn    = document.getElementById('btnTest');
   var banner = document.getElementById('testbanner');
   btn.disabled = true; btn.textContent = 'ĐANG TEST…';
-
-  var setB = function(ok, msg) {
-    var bg  = ok ? 'rgba(0,255,136,.1)'   : 'rgba(255,51,102,.1)';
-    var bd  = ok ? 'rgba(0,255,136,.3)'   : 'rgba(255,51,102,.3)';
-    var col = ok ? 'var(--green)'          : 'var(--red)';
-    banner.style.cssText = 'display:block;padding:8px 11px;border-radius:4px;margin-bottom:10px;'
-      +'font-family:monospace;font-size:11px;line-height:1.7;'
-      +'background:'+bg+';border:1px solid '+bd+';color:'+col;
-    banner.textContent = msg;
-  };
-
-  setB(null, '⏳ Bước 1/3 — Kiểm tra TCP port 554…');
-  banner.style.background = 'rgba(0,212,255,.08)';
-  banner.style.border     = '1px solid rgba(0,212,255,.25)';
-  banner.style.color      = 'var(--cyan)';
-  banner.style.display    = 'block';
-
+  banner.style.cssText = 'display:block;padding:7px 10px;border-radius:4px;margin-bottom:10px;font-family:monospace;font-size:11px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--cyan)';
+  banner.textContent = '⏳ Đang kiểm tra…';
   var payload = {
     ip:       document.getElementById('fIp').value.trim(),
     port:     parseInt(document.getElementById('fPort').value)||554,
@@ -541,15 +525,16 @@ function doTest() {
     username: document.getElementById('fUser').value.trim()||'admin',
     password: document.getElementById('fPass').value
   };
-
-  postJSON('/api/test', payload).then(function(r) {
-    var icon = r.ok ? '✓' : '✕';
-    var step = r.step ? ' [bước '+r.step+'/3]' : '';
-    setB(r.ok, icon+step+' '+r.msg);
-    if (r.ok) toast('✓ Camera kết nối thành công!', 'returned');
-  }).catch(function(e) {
-    setB(false, '✕ Lỗi gửi request: '+e.message+'\n→ Server có đang chạy không?');
-  }).finally(function() {
+  postJSON('/api/test', payload).then(function(r){
+    if (r.ok) {
+      banner.style.cssText = 'display:block;padding:7px 10px;border-radius:4px;margin-bottom:10px;font-family:monospace;font-size:11px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green)';
+    } else {
+      banner.style.cssText = 'display:block;padding:7px 10px;border-radius:4px;margin-bottom:10px;font-family:monospace;font-size:11px;background:rgba(255,51,102,.1);border:1px solid rgba(255,51,102,.3);color:var(--red)';
+    }
+    banner.textContent = (r.ok?'✓ ':'✕ ')+r.msg;
+  }).catch(function(e){
+    banner.textContent = '✕ '+e.message;
+  }).finally(function(){
     btn.disabled = false; btn.textContent = 'TEST KẾT NỐI';
   });
 }
