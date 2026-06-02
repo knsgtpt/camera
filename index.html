@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EyeWatch — Giám Sát Nhân Viên</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#070b0f;--bg2:#0d1117;--bg3:#121820;
+  --bd:#1e2d3d;--bd2:#243447;
+  --cyan:#00d4ff;--green:#00ff88;--red:#ff3366;--yellow:#ffc93c;
+  --text:#c8d8e8;--muted:#5a7a9a;--faint:#3a5a7a;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font:13px/1.4 'Segoe UI',Arial,sans-serif}
+
+/* topbar */
+#topbar{
+  height:48px;background:var(--bg2);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;padding:0 20px;gap:10px;
+  position:relative;z-index:50;
+}
+.logo{font-size:20px;font-weight:900;letter-spacing:3px;color:var(--cyan)}
+.logo b{color:var(--muted);font-weight:400}
+.livebadge{
+  display:flex;align-items:center;gap:5px;
+  font-size:10px;font-family:monospace;color:var(--green);
+  background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);
+  border-radius:3px;padding:3px 8px;
+}
+.livebadge .dot{
+  width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:blink 1.4s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+#clock{margin-left:auto;font-family:monospace;font-size:14px;color:var(--cyan);letter-spacing:2px}
+
+/* buttons */
+.btn{
+  padding:7px 14px;border-radius:4px;border:1px solid var(--bd2);
+  background:rgba(255,255,255,.04);color:var(--text);
+  font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;
+  cursor:pointer;transition:background .15s,border-color .15s;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn:hover{background:rgba(255,255,255,.1)}
+.btn:active{opacity:.7}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-cyan{color:var(--cyan);border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.08)}
+.btn-cyan:hover{background:rgba(0,212,255,.18)}
+.btn-red{color:var(--red);border-color:rgba(255,51,102,.4);background:rgba(255,51,102,.08)}
+.btn-red:hover{background:rgba(255,51,102,.18)}
+.btn-yellow{color:var(--yellow);border-color:rgba(255,201,60,.4);background:rgba(255,201,60,.08)}
+.btn-yellow:hover{background:rgba(255,201,60,.18)}
+
+/* layout */
+#layout{
+  display:grid;grid-template-columns:260px 1fr 320px;
+  height:calc(100vh - 48px);overflow:hidden;
+}
+
+/* sidebar */
+#sidebar{background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+.slab{padding:13px 15px;border-bottom:1px solid var(--bd)}
+.slabel{font-family:monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.scard{background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:9px 11px}
+.snum{font-size:26px;font-weight:900;line-height:1;color:var(--cyan);font-family:monospace}
+.snum.g{color:var(--green)}.snum.r{color:var(--red)}
+.snumlbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:2px}
+#camlist{flex:1;overflow-y:auto;padding:7px}
+#camlist::-webkit-scrollbar{width:3px}
+#camlist::-webkit-scrollbar-thumb{background:var(--bd2)}
+.camrow{
+  display:flex;align-items:center;gap:8px;padding:9px 10px;
+  border-radius:6px;background:var(--bg3);border:1px solid var(--bd);
+  margin-bottom:5px;cursor:pointer;transition:border-color .15s;
+}
+.camrow:hover{border-color:rgba(0,212,255,.4)}
+.led{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.led.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.led.error{background:var(--red);box-shadow:0 0 6px var(--red);animation:blink .8s infinite}
+.led.connecting,.led.reconnecting{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:blink .8s infinite}
+.led.demo{background:var(--cyan)}
+.cinfo{flex:1;min-width:0}
+.cname{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cip{font-family:monospace;font-size:10px;color:var(--muted);margin-top:1px}
+.cdel{
+  width:22px;height:22px;border:none;background:transparent;
+  color:var(--faint);cursor:pointer;border-radius:3px;
+  font-size:13px;display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;flex-shrink:0;
+}
+.cdel:hover{background:rgba(255,51,102,.18);color:var(--red)}
+
+/* main grid */
+#main{display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.toolbar{
+  height:42px;padding:0 13px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--bd);background:var(--bg2);
+}
+.tlbl{font-family:monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--faint)}
+#grid{
+  flex:1;padding:10px;overflow-y:auto;
+  display:grid;gap:10px;align-content:start;
+}
+.g1{grid-template-columns:1fr}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.feedcard{
+  background:var(--bg2);border:1px solid var(--bd);border-radius:8px;
+  overflow:hidden;position:relative;aspect-ratio:16/9;
+}
+.feedcard.absent{border-color:rgba(255,51,102,.7)}
+.feedcard.absent::after{
+  content:'⚠ VẮNG MẶT';position:absolute;top:8px;right:8px;
+  background:var(--red);color:#fff;font-family:monospace;font-size:9px;font-weight:900;
+  padding:3px 7px;border-radius:3px;animation:blink .7s infinite;
+}
+.feedcard img{width:100%;height:100%;object-fit:cover;display:block}
+.nosig{
+  width:100%;height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+  background:var(--bg3);color:var(--muted);font-family:monospace;font-size:11px;
+}
+.feedbar{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.85));
+  padding:18px 10px 7px;display:flex;justify-content:space-between;align-items:flex-end;
+}
+.fbname{font-size:12px;font-weight:600;color:#fff}
+.fbip{font-family:monospace;font-size:9px;color:rgba(255,255,255,.4)}
+.empty{
+  grid-column:1/-1;height:55vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;
+  color:var(--faint);text-align:center;font-family:monospace;font-size:12px;
+}
+
+/* log panel */
+#logpanel{background:var(--bg2);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+.loghdr{
+  padding:12px 14px 8px;border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logtitle{font-size:15px;font-weight:700;letter-spacing:1px}
+#loglist{flex:1;overflow-y:auto;padding:6px}
+#loglist::-webkit-scrollbar{width:3px}
+#loglist::-webkit-scrollbar-thumb{background:var(--bd2)}
+.logcard{
+  background:var(--bg3);border:1px solid var(--bd);border-radius:7px;
+  margin-bottom:7px;overflow:hidden;animation:sin .25s ease;
+}
+@keyframes sin{from{opacity:0;transform:translateX(10px)}}
+.logcard.absent{border-color:rgba(255,51,102,.3)}
+.logcard.returned{border-color:rgba(0,255,136,.25)}
+.logimg{width:100%;height:85px;object-fit:cover;display:block;border-bottom:1px solid var(--bd)}
+.lognothumb{
+  width:100%;height:55px;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);border-bottom:1px solid var(--bd);
+  font-family:monospace;font-size:10px;color:var(--faint);
+}
+.logbody{padding:9px 11px}
+.logtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.logcam{font-weight:700;font-size:12px}
+.badge{font-family:monospace;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px}
+.ba{background:rgba(255,51,102,.15);color:var(--red);border:1px solid rgba(255,51,102,.3)}
+.br{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.logrows{display:grid;gap:3px}
+.logrow{display:flex;gap:6px;font-family:monospace;font-size:10px}
+.lk{color:var(--faint);min-width:75px}.lv{color:var(--text)}
+.lv.r{color:var(--red)}.lv.g{color:var(--green)}.lv.y{color:var(--yellow)}
+.logempty{padding:28px;text-align:center;font-family:monospace;font-size:11px;color:var(--faint);line-height:2}
+
+/* toasts */
+#toasts{position:fixed;top:56px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{
+  padding:9px 13px;border-radius:5px;font-family:monospace;font-size:11px;
+  min-width:230px;max-width:310px;animation:tin .2s ease;pointer-events:all;
+}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}}
+.toast.info{background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--cyan)}
+.toast.absent{background:rgba(255,51,102,.12);border:1px solid rgba(255,51,102,.35);color:var(--red)}
+.toast.returned{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green)}
+
+/* modal */
+#overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:200;display:none;align-items:center;justify-content:center;
+}
+#overlay.open{display:flex}
+#modal{
+  background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;
+  padding:24px;width:420px;box-shadow:0 24px 60px rgba(0,0,0,.6);
+}
+.mtitle{font-size:19px;font-weight:900;color:var(--cyan);margin-bottom:18px;letter-spacing:1px}
+.frow{display:grid;gap:7px;margin-bottom:9px}
+.f2{grid-template-columns:1fr 1fr}
+.f3{grid-template-columns:2fr 1fr 1fr}
+.inp{
+  background:var(--bg3);border:1px solid var(--bd);border-radius:4px;
+  padding:8px 10px;font-family:monospace;font-size:11px;
+  color:var(--text);width:100%;outline:none;transition:border-color .15s;
+}
+.inp:focus{border-color:var(--cyan)}
+.inp::placeholder{color:var(--faint)}
+.rtspbox{
+  font-family:monospace;font-size:10px;color:var(--muted);word-break:break-all;
+  padding:7px 10px;background:var(--bg3);border:1px solid var(--bd);
+  border-radius:4px;margin-bottom:10px;
+}
+.rtspbox span{color:var(--cyan)}
+#testbanner{
+  display:none;padding:7px 10px;border-radius:4px;margin-bottom:10px;
+  font-family:monospace;font-size:11px;
+}
+.mfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">EYE<b>WATCH</b></div>
+  <div class="livebadge"><div class="dot"></div>REALTIME</div>
+  <button class="btn btn-cyan" id="btnOpenModal">＋ THÊM CAMERA</button>
+  <button class="btn" id="btnDemo">DEMO</button>
+  <button class="btn" onclick="window.open('/diag','_blank')" style="color:var(--yellow);border-color:rgba(255,201,60,.3)">CHẨN ĐOÁN</button>
+  <div id="clock"></div>
+</div>
+
+<div id="layout">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="slab">
+      <div class="slabel">Tổng quan</div>
+      <div class="sgrid">
+        <div class="scard"><div class="snum"   id="stTotal">0</div><div class="snumlbl">Camera</div></div>
+        <div class="scard"><div class="snum g" id="stOnline">0</div><div class="snumlbl">Online</div></div>
+        <div class="scard"><div class="snum r" id="stAbsent">0</div><div class="snumlbl">Vắng mặt</div></div>
+        <div class="scard"><div class="snum"   id="stEvents">0</div><div class="snumlbl">Sự kiện</div></div>
+      </div>
+    </div>
+    <div class="slab" style="padding-bottom:8px">
+      <div class="slabel">Danh sách camera</div>
+    </div>
+    <div id="camlist"></div>
+  </div>
+
+  <!-- Center -->
+  <div id="main">
+    <div class="toolbar">
+      <span class="tlbl">Live Feed</span>
+      <span style="flex:1"></span>
+      <button class="btn" id="g1btn" style="padding:4px 10px;font-size:10px">1×1</button>
+      <button class="btn" id="g2btn" style="padding:4px 10px;font-size:10px">2×2</button>
+      <button class="btn" id="g3btn" style="padding:4px 10px;font-size:10px">3×3</button>
+    </div>
+    <div id="grid" class="g2">
+      <div class="empty" id="emptyMsg">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".25">
+          <path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.89L15 14"/>
+          <rect x="3" y="7" width="12" height="10" rx="1"/>
+        </svg>
+        <div>Chưa có camera nào</div>
+        <div style="color:var(--faint);font-size:11px">Nhấn <b style="color:var(--cyan)">THÊM CAMERA</b> hoặc <b>DEMO</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log panel -->
+  <div id="logpanel">
+    <div class="loghdr">
+      <div class="logtitle">Nhật ký sự kiện</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="logcount" style="font-family:monospace;font-size:10px;color:var(--muted)">0 sự kiện</span>
+        <button class="btn btn-red" id="btnClearLogs" style="padding:3px 9px;font-size:10px">Xóa</button>
+      </div>
+    </div>
+    <div id="loglist">
+      <div class="logempty">Chưa có sự kiện.<br>Hệ thống sẽ tự ghi log<br>khi phát hiện vắng mặt.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts"></div>
+
+<!-- Modal -->
+<div id="overlay">
+  <div id="modal">
+    <div class="mtitle">🎥 Thêm Camera Dahua</div>
+    <div class="frow">
+      <input class="inp" id="fName" placeholder="Tên camera (vd: Phòng kế toán)">
+    </div>
+    <div class="frow f3">
+      <input class="inp" id="fIp"   placeholder="Địa chỉ IP" value="10.17.16.81">
+      <input class="inp" id="fPort" placeholder="Port"       value="554">
+      <input class="inp" id="fCh"   placeholder="Channel"    value="1">
+    </div>
+    <div class="frow f2">
+      <input class="inp" id="fUser" placeholder="Username" value="admin">
+      <input class="inp" id="fPass" type="password" placeholder="Password">
+    </div>
+    <div class="rtspbox">rtsp://<span id="rtspPreview">test:Abc@123@10.17.16.81:554/cam/realmonitor?channel=1&amp;subtype=1</span></div>
+    <div id="testbanner"></div>
+    <div class="mfoot">
+      <button class="btn"            id="btnCancel">HỦY</button>
+      <button class="btn btn-yellow" id="btnTest">TEST KẾT NỐI</button>
+      <button class="btn btn-cyan"   id="btnConnect">KẾT NỐI</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function() {
+'use strict';
+
+/* ── state ── */
+var cams    = {};
+var absent  = {};
+var gcols   = 2;
+
+/* ── clock ── */
+function tick() {
+  var d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleTimeString('vi-VN',{hour12:false});
+}
+setInterval(tick, 1000); tick();
+
+/* ── toast ── */
+function toast(msg, type) {
+  var box = document.getElementById('toasts');
+  var el  = document.createElement('div');
+  el.className   = 'toast ' + (type||'info');
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(function() {
+    el.style.transition = 'opacity .3s';
+    el.style.opacity    = '0';
+    setTimeout(function(){ el.remove(); }, 350);
+  }, 3500);
+}
+
+/* ── fetch helpers ── */
+function getJSON(url) {
+  return fetch(url).then(function(r){ return r.json(); });
+}
+function postJSON(url, body) {
+  return fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); });
+}
+function del(url) {
+  return fetch(url, {method:'DELETE'}).then(function(r){ return r.json(); });
+}
+
+/* ── stats ── */
+function updateStats() {
+  var list   = Object.values(cams);
+  var online = list.filter(function(c){ return c.status==='online'||c.status==='demo'; }).length;
+  document.getElementById('stTotal').textContent  = list.length;
+  document.getElementById('stOnline').textContent = online;
+  document.getElementById('stAbsent').textContent = Object.keys(absent).length;
+}
+
+/* ── sidebar ── */
+function renderSidebar() {
+  var el   = document.getElementById('camlist');
+  var list = Object.values(cams);
+  if (!list.length) {
+    el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--faint);font-family:monospace;font-size:11px">Chưa có camera</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(c) {
+    return '<div class="camrow" data-cam="'+c.id+'">'
+      +'<div class="led '+c.status+'" id="led_'+c.id+'"></div>'
+      +'<div class="cinfo">'
+        +'<div class="cname">'+esc(c.name)+'</div>'
+        +'<div class="cip">'+esc(c.ip)+':'+c.port+'</div>'
+      +'</div>'
+      +'<button class="cdel" data-del="'+c.id+'" title="Xóa">✕</button>'
+      +'</div>';
+  }).join('');
+  /* attach events */
+  el.querySelectorAll('.camrow').forEach(function(row){
+    row.addEventListener('click', function(e){
+      if (e.target.dataset.del) return;
+      var id = row.dataset.cam;
+      var fd = document.getElementById('feed_'+id);
+      if (fd) fd.scrollIntoView({behavior:'smooth',block:'center'});
+    });
+  });
+  el.querySelectorAll('.cdel').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      removeCam(btn.dataset.del);
+    });
+  });
+}
+
+/* ── grid ── */
+function setGrid(n) {
+  gcols = n;
+  document.getElementById('grid').className = 'g'+n;
+}
+
+function renderGrid() {
+  var grid = document.getElementById('grid');
+  var list = Object.values(cams);
+  document.getElementById('emptyMsg').style.display = list.length ? 'none' : 'flex';
+  /* remove deleted */
+  grid.querySelectorAll('.feedcard').forEach(function(el){
+    if (!cams[el.dataset.id]) el.remove();
+  });
+  list.forEach(function(c) {
+    if (document.getElementById('feed_'+c.id)) return;
+    var demo  = (c.status==='demo'||c.ip==='0.0.0.0');
+    var inner = demo
+      ? '<div class="nosig">📷<br>Demo Camera</div>'
+      : '<img src="/api/stream/'+c.id+'" alt="">';
+    var div = document.createElement('div');
+    div.className  = 'feedcard';
+    div.id         = 'feed_'+c.id;
+    div.dataset.id = c.id;
+    div.innerHTML  = inner
+      +'<div class="feedbar">'
+        +'<span class="fbname">'+esc(c.name)+'</span>'
+        +'<span class="fbip">'+esc(c.ip)+' CH'+c.channel+'</span>'
+      +'</div>';
+    grid.appendChild(div);
+  });
+  setGrid(gcols);
+}
+
+function markAbsent(id, yes) {
+  var card = document.getElementById('feed_'+id);
+  if (card) card.classList.toggle('absent', yes);
+}
+
+/* ── load data ── */
+function loadCams() {
+  getJSON('/api/cameras').then(function(list) {
+    cams = {};
+    list.forEach(function(c){ cams[c.id] = c; });
+    renderSidebar(); renderGrid(); updateStats();
+  });
+}
+function loadLogs() {
+  getJSON('/api/logs').then(function(logs) {
+    var cnt = logs.length;
+    document.getElementById('logcount').textContent = cnt+' sự kiện';
+    document.getElementById('stEvents').textContent = cnt;
+    var el = document.getElementById('loglist');
+    if (!cnt) {
+      el.innerHTML = '<div class="logempty">Chưa có sự kiện.<br>Hệ thống sẽ tự ghi log<br>khi phát hiện vắng mặt.</div>';
+      return;
+    }
+    el.innerHTML = logs.map(function(log) {
+      var isA    = log.status === 'absent';
+      var thumb  = log.snapshot
+        ? '<img class="logimg" src="/static/snapshots/'+log.snapshot+'" alt="">'
+        : '<div class="lognothumb">📷 Chụp sau 5 phút vắng mặt</div>';
+      var tA = log.absent_since ? new Date(log.absent_since).toLocaleTimeString('vi-VN') : '—';
+      var tR = log.return_time  ? new Date(log.return_time ).toLocaleTimeString('vi-VN') : '—';
+      var dt = log.absent_since ? new Date(log.absent_since).toLocaleDateString('vi-VN') : '';
+      var dur= log.duration_sec!=null ? fmtDur(log.duration_sec) : (isA?'⏳ đang vắng':'—');
+      return '<div class="logcard '+log.status+'">'
+        +thumb
+        +'<div class="logbody">'
+          +'<div class="logtop">'
+            +'<span class="logcam">'+esc(log.cam_name)+'</span>'
+            +'<span class="badge '+(isA?'ba':'br')+'">'+(isA?'VẮNG MẶT':'TRỞ LẠI')+'</span>'
+          +'</div>'
+          +'<div class="logrows">'
+            +'<div class="logrow"><span class="lk">Ngày</span><span class="lv">'+dt+'</span></div>'
+            +'<div class="logrow"><span class="lk">Vắng lúc</span><span class="lv r">'+tA+'</span></div>'
+            +'<div class="logrow"><span class="lk">Trở lại</span><span class="lv g">'+tR+'</span></div>'
+            +'<div class="logrow"><span class="lk">Thời gian</span><span class="lv y">'+dur+'</span></div>'
+          +'</div>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+  });
+}
+
+/* ── camera actions ── */
+function removeCam(id) {
+  del('/api/cameras/'+id).then(function(){
+    delete cams[id]; delete absent[id];
+    var card = document.getElementById('feed_'+id);
+    if (card) card.remove();
+    renderSidebar(); updateStats();
+  });
+}
+
+/* ── modal ── */
+function openModal() {
+  document.getElementById('testbanner').style.display = 'none';
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(function(){ document.getElementById('fName').focus(); }, 80);
+}
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+function updateRtsp() {
+  var ip   = document.getElementById('fIp').value   || '10.17.16.81';
+  var port = document.getElementById('fPort').value || '554';
+  var ch   = document.getElementById('fCh').value   || '1';
+  var user = document.getElementById('fUser').value || 'admin';
+  document.getElementById('rtspPreview').textContent =
+    user+':***@'+ip+':'+port+'/cam/realmonitor?channel='+ch+'&subtype=0';
+}
+
+function doTest() {
+  var btn    = document.getElementById('btnTest');
+  var banner = document.getElementById('testbanner');
+  btn.disabled = true; btn.textContent = 'ĐANG TEST…';
+
+  var setB = function(ok, msg) {
+    var bg  = ok ? 'rgba(0,255,136,.1)'   : 'rgba(255,51,102,.1)';
+    var bd  = ok ? 'rgba(0,255,136,.3)'   : 'rgba(255,51,102,.3)';
+    var col = ok ? 'var(--green)'          : 'var(--red)';
+    banner.style.cssText = 'display:block;padding:8px 11px;border-radius:4px;margin-bottom:10px;'
+      +'font-family:monospace;font-size:11px;line-height:1.7;'
+      +'background:'+bg+';border:1px solid '+bd+';color:'+col;
+    banner.textContent = msg;
+  };
+
+  setB(null, '⏳ Bước 1/3 — Kiểm tra TCP port 554…');
+  banner.style.background = 'rgba(0,212,255,.08)';
+  banner.style.border     = '1px solid rgba(0,212,255,.25)';
+  banner.style.color      = 'var(--cyan)';
+  banner.style.display    = 'block';
+
+  var payload = {
+    ip:       document.getElementById('fIp').value.trim(),
+    port:     parseInt(document.getElementById('fPort').value)||554,
+    channel:  parseInt(document.getElementById('fCh').value)||1,
+    username: document.getElementById('fUser').value.trim()||'admin',
+    password: document.getElementById('fPass').value
+  };
+
+  postJSON('/api/test', payload).then(function(r) {
+    var icon = r.ok ? '✓' : '✕';
+    var step = r.step ? ' [bước '+r.step+'/3]' : '';
+    setB(r.ok, icon+step+' '+r.msg);
+    if (r.ok) toast('✓ Camera kết nối thành công!', 'returned');
+  }).catch(function(e) {
+    setB(false, '✕ Lỗi gửi request: '+e.message+'\n→ Server có đang chạy không?');
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = 'TEST KẾT NỐI';
+  });
+}
+
+function doConnect() {
+  var ipEl = document.getElementById('fIp');
+  var ip   = ipEl.value.trim();
+  if (!ip) {
+    ipEl.style.borderColor = 'var(--red)'; ipEl.focus();
+    setTimeout(function(){ ipEl.style.borderColor = ''; }, 1200);
+    return;
+  }
+  var btn  = document.getElementById('btnConnect');
+  btn.disabled = true; btn.textContent = 'ĐANG KẾT NỐI…';
+  var payload = {
+    name:     document.getElementById('fName').value.trim() || ('Camera '+(Object.keys(cams).length+1)),
+    ip:       ip,
+    port:     parseInt(document.getElementById('fPort').value)||554,
+    channel:  parseInt(document.getElementById('fCh').value)||1,
+    username: document.getElementById('fUser').value.trim()||'admin',
+    password: document.getElementById('fPass').value
+  };
+  postJSON('/api/cameras', payload).then(function(r){
+    if (r.error) { toast('❌ '+r.error,'absent'); return; }
+    document.getElementById('fName').value = '';
+    document.getElementById('fPass').value = '';
+    closeModal();
+    toast('📡 Đang kết nối tới '+ip+'…','info');
+    loadCams();
+  }).catch(function(e){
+    toast('❌ '+e.message,'absent');
+  }).finally(function(){
+    btn.disabled = false; btn.textContent = 'KẾT NỐI';
+  });
+}
+
+/* ── socket events ── */
+function handleEvent(ev) {
+  var led = document.getElementById('led_'+ev.cam_id);
+  if (ev.event === 'connected') {
+    if (cams[ev.cam_id]) cams[ev.cam_id].status = 'online';
+    if (led) led.className = 'led online';
+    toast('📡 '+ev.cam_name+' — kết nối OK','info');
+    updateStats();
+  } else if (ev.event === 'connect_error') {
+    if (cams[ev.cam_id]) cams[ev.cam_id].status = 'error';
+    if (led) led.className = 'led error';
+    toast('❌ '+ev.cam_name+' — lỗi kết nối','absent');
+    updateStats();
+  } else if (ev.event === 'absent') {
+    absent[ev.cam_id] = true;
+    markAbsent(ev.cam_id, true);
+    updateStats(); loadLogs();
+    toast('⚠ '+ev.cam_name+' — VẮNG MẶT','absent');
+  } else if (ev.event === 'returned') {
+    delete absent[ev.cam_id];
+    markAbsent(ev.cam_id, false);
+    updateStats(); loadLogs();
+    toast('✓ '+ev.cam_name+' — Trở lại sau '+fmtDur(ev.elapsed_sec||0),'returned');
+  } else if (ev.event === 'snapshot') {
+    toast('📸 '+ev.cam_name+' — Chụp ảnh vắng 5 phút','absent');
+    loadLogs();
+  }
+}
+
+/* ── helper ── */
+function fmtDur(s) {
+  var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  if (h) return h+'g '+m+'p '+sec+'s';
+  if (m) return m+' phút '+sec+' giây';
+  return sec+' giây';
+}
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── wire buttons ── */
+document.getElementById('btnOpenModal').addEventListener('click', openModal);
+document.getElementById('btnDemo').addEventListener('click', function(){
+  postJSON('/api/demo',{}).then(function(){ toast('Demo đã thêm','info'); loadCams(); });
+});
+document.getElementById('btnCancel').addEventListener('click', closeModal);
+document.getElementById('btnTest').addEventListener('click', doTest);
+document.getElementById('btnConnect').addEventListener('click', doConnect);
+document.getElementById('btnClearLogs').addEventListener('click', function(){
+  if (!confirm('Xóa toàn bộ nhật ký?')) return;
+  del('/api/logs').then(loadLogs);
+});
+document.getElementById('g1btn').addEventListener('click', function(){ setGrid(1); });
+document.getElementById('g2btn').addEventListener('click', function(){ setGrid(2); });
+document.getElementById('g3btn').addEventListener('click', function(){ setGrid(3); });
+
+/* close modal on backdrop */
+document.getElementById('overlay').addEventListener('click', function(e){
+  if (e.target === this) closeModal();
+});
+
+/* form fields → rtsp preview + enter/esc */
+['fName','fIp','fPort','fCh','fUser','fPass'].forEach(function(id){
+  var el = document.getElementById(id);
+  el.addEventListener('input', updateRtsp);
+  el.addEventListener('keydown', function(e){
+    if (e.key === 'Enter')  doConnect();
+    if (e.key === 'Escape') closeModal();
+  });
+});
+
+/* ── socket init ── */
+if (typeof io !== 'undefined') {
+  try {
+    var sock = io({transports:['websocket','polling']});
+    sock.on('ev', handleEvent);
+    sock.on('connect', function(){ toast('Đã kết nối server','info'); });
+  } catch(e){ console.warn('socket error', e); }
+}
+
+/* ── start ── */
+loadCams();
+loadLogs();
+setInterval(loadCams, 6000);
+setInterval(loadLogs, 8000);
+
+})();
+</script>
+</body>
+</html>
